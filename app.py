@@ -11,13 +11,22 @@ st.title("🚀 Max: Multi-Agent Startup Architect")
 st.markdown("Enter your idea below, and our AI crew will build a market and tech roadmap for you.")
 
 # 2. Setup (LLM & Tools)
+# Pull keys directly from Streamlit Secrets
 load_dotenv()
-my_llm = LLM(model="groq/llama-3.1-8b-instant", api_key=os.getenv("GROQ_API_KEY"),temperature=0.1,provider="groq")
+groq_key = st.secrets["GROQ_API_KEY"]
+
+my_llm = LLM(
+    model="groq/llama-3.1-8b-instant", 
+    api_key=groq_key,
+    temperature=0.1,
+    provider="groq",
+    max_tokens=1000 # Stop the model from trying to write too much and timing out
+)
 
 @tool("duckduckgo_search")
 def search_tool(query: str):
     """Search the internet for information."""
-    return DuckDuckGoSearchRun().run(query)[:2000]
+    return DuckDuckGoSearchRun().run(query)[:1500]
 
 # 3. User Input
 user_idea = st.text_input("What is your startup idea?", placeholder="e.g. A robotic chef for small apartments")
@@ -32,7 +41,7 @@ if st.button("Generate Roadmap"):
                 role='Market Specialist',
                 goal=f'Find 3 competitors and gaps for {user_idea}',
                 backstory='Expert in tech market analysis.',
-                tools=[search_tool], llm=my_llm, verbose=True, allow_delegation=False,max_iterations=3
+                tools=[search_tool], llm=my_llm, verbose=True, allow_delegation=False
             )
             
             architect = Agent(
