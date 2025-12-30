@@ -32,7 +32,7 @@ if st.button("Generate Roadmap"):
                 role='Market Specialist',
                 goal=f'Find 3 competitors and gaps for {user_idea}',
                 backstory='Expert in tech market analysis.',
-                tools=[search_tool], llm=my_llm, verbose=True, allow_delegation=False
+                tools=[search_tool], llm=my_llm, verbose=True, allow_delegation=False,max_iterations=3
             )
             
             architect = Agent(
