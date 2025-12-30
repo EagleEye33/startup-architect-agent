@@ -12,7 +12,7 @@ st.markdown("Enter your idea below, and our AI crew will build a market and tech
 
 # 2. Setup (LLM & Tools)
 load_dotenv()
-my_llm = LLM(model="groq/llama-3.1-8b-instant", api_key=os.getenv("GROQ_API_KEY"))
+my_llm = LLM(model="groq/llama-3.1-8b-instant", api_key=os.getenv("GROQ_API_KEY"),temperature=0.1,provider="groq")
 
 @tool("duckduckgo_search")
 def search_tool(query: str):
@@ -43,11 +43,11 @@ if st.button("Generate Roadmap"):
             )
 
             # --- TASKS ---
-            t1 = Task(description=f"Research {user_idea}", agent=researcher, expected_output="Market report.")
+            t1 = Task(description=f"Research {user_idea}", agent=researcher, expected_output="A summary of 3 competitors and 2 market trends (max 400 words).")
             t2 = Task(description="Technical design.", agent=architect, expected_output="Tech stack.", context=[t1])
 
             # --- CREW ---
-            crew = Crew(agents=[researcher, architect], tasks=[t1, t2], process=Process.sequential, manager_llm=my_llm, verbose=True,max_rpm=2, tracing=True)
+            crew = Crew(agents=[researcher, architect], tasks=[t1, t2], process=Process.sequential, manager_llm=my_llm, verbose=True,max_rpm=3, tracing=True, memory=False)
             
             st.write("🕵️ Researcher is searching the web...")
             result = crew.kickoff()
