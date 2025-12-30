@@ -8,63 +8,85 @@ from langchain_community.tools import DuckDuckGoSearchRun
 # 1. UI Configuration
 st.set_page_config(page_title="Max: Startup Architect", page_icon="🚀", layout="wide")
 st.title("🚀 Max: Multi-Agent Startup Architect")
-st.markdown("Enter your idea below, and our AI crew will build a market and tech roadmap for you.")
 
 # 2. Setup (LLM & Tools)
-# Pull keys directly from Streamlit Secrets
 load_dotenv()
-groq_key = st.secrets["GROQ_API_KEY"]
 
+# CRITICAL: Use st.secrets for Streamlit Cloud stability
+groq_api_key = st.secrets["GROQ_API_KEY"]
+
+# Using a hyper-stable configuration for Groq
 my_llm = LLM(
     model="groq/llama-3.1-8b-instant", 
-    api_key=groq_key,
+    api_key=groq_api_key,
     temperature=0.1,
-    provider="groq",
-    max_tokens=1000 # Stop the model from trying to write too much and timing out
+    max_tokens=1000, # Prevents long responses that trigger 'None' errors
+    provider="groq"
 )
 
 @tool("duckduckgo_search")
 def search_tool(query: str):
-    """Search the internet for information."""
-    return DuckDuckGoSearchRun().run(query)[:1500]
+    """Search the internet for info. Returns very short results to save tokens."""
+    # Reduced to 800 characters - Groq's free tier handles this much better
+    return DuckDuckGoSearchRun().run(query)[:800]
 
 # 3. User Input
-user_idea = st.text_input("What is your startup idea?", placeholder="e.g. A robotic chef for small apartments")
+user_idea = st.text_input("What is your startup idea?", placeholder="e.g. AI for Norway travel")
 
 if st.button("Generate Roadmap"):
     if not user_idea:
         st.warning("Please enter an idea first!")
     else:
-        with st.status("🤖 Agents are working...", expanded=True) as status:
-            # --- AGENTS ---
+        with st.status("🤖 AI Crew is thinking...", expanded=True) as status:
+            # --- AGENTS (Ultra-minimal backstories to save tokens) ---
             researcher = Agent(
-                role='Market Specialist',
-                goal=f'Find 3 competitors and gaps for {user_idea}',
-                backstory='Expert in tech market analysis.',
-                tools=[search_tool], llm=my_llm, verbose=True, allow_delegation=False
+                role='Researcher',
+                goal=f'Find 2 competitors for {user_idea}',
+                backstory='Market analyst.',
+                tools=[search_tool], 
+                llm=my_llm, 
+                verbose=True, 
+                allow_delegation=False,
+                max_iter=2 # Stops the agent from over-thinking and crashing
             )
             
             architect = Agent(
-                role='Cloud Architect',
-                goal=f'Design a tech stack for {user_idea}',
-                backstory='Expert in AWS and Docker.',
-                llm=my_llm, verbose=True, allow_delegation=False
+                role='Architect',
+                goal=f'Suggest a tech stack for {user_idea}',
+                backstory='Cloud expert.',
+                llm=my_llm, 
+                verbose=True, 
+                allow_delegation=False,
+                max_iter=2
             )
 
-            # --- TASKS ---
-            t1 = Task(description=f"Research {user_idea}", agent=researcher, expected_output="A summary of 3 competitors and 2 market trends (max 400 words).")
-            t2 = Task(description="Technical design.", agent=architect, expected_output="Tech stack.", context=[t1])
+            # --- TASKS (Strict word limits to prevent API timeouts) ---
+            t1 = Task(
+                description=f"Identify 2 competitors for {user_idea}.", 
+                agent=researcher, 
+                expected_output="A bulleted list of 2 competitors."
+            )
+            t2 = Task(
+                description="Suggest 3 key technologies for the stack.", 
+                agent=architect, 
+                expected_output="A tech stack list.", 
+                context=[t1]
+            )
 
-            # --- CREW ---
-            crew = Crew(agents=[researcher, architect], tasks=[t1, t2], process=Process.sequential, manager_llm=my_llm, verbose=True,max_rpm=3, tracing=True, memory=False)
+            # --- CREW (Slow and steady wins the race) ---
+            crew = Crew(
+                agents=[researcher, architect], 
+                tasks=[t1, t2], 
+                process=Process.sequential, 
+                max_rpm=1, # Strict 1 request per minute for Free Tier stability
+                memory=False, # Memory requires OpenAI/Embeddings, keep it False
+                tracing=True
+            )
             
-            st.write("🕵️ Researcher is searching the web...")
             result = crew.kickoff()
-            status.update(label="✅ Roadmap Complete!", state="complete", expanded=False)
+            status.update(label="✅ Success!", state="complete", expanded=False)
 
         # 4. Display Result
-        st.subheader("Your Startup Blueprint")
+        st.subheader("Final Blueprint")
         st.markdown(result.raw)
-        
-        # Add a download button for the professional touch
-        st.download_button("Download Report (.md)", result.raw, file_name="startup_plan.md")
+        st.download_button("Download (.md)", result.raw, file_name="plan.md")
