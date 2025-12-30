@@ -47,7 +47,7 @@ if st.button("Generate Roadmap"):
             t2 = Task(description="Technical design.", agent=architect, expected_output="Tech stack.", context=[t1])
 
             # --- CREW ---
-            crew = Crew(agents=[researcher, architect], tasks=[t1, t2], process=Process.sequential, manager_llm=my_llm)
+            crew = Crew(agents=[researcher, architect], tasks=[t1, t2], process=Process.sequential, manager_llm=my_llm, verbose=True,max_rpm=2, tracing=True)
             
             st.write("🕵️ Researcher is searching the web...")
             result = crew.kickoff()
